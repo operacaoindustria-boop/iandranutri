@@ -1,23 +1,18 @@
 # QG Elite Nutrição
 
-## Iniciar a plataforma e a Mentoria IA
+Plataforma de estudos para o concurso de Nutricionista de Trindade/PE.
 
-A Mentoria IA precisa do backend local para manter a chave Gemini fora do navegador. Não abra a plataforma pelo Live Server para usar a IA.
+## Abrir a plataforma
 
-1. Instale o Node.js 18 ou superior.
-2. Na pasta do projeto, crie o arquivo local de configuração:
+Abra `index.html` diretamente ou use o Live Server. A Mentoria funciona em modo local sem chave de API: pesquisa no acervo da plataforma e mostra trechos e respostas relacionados à pergunta. Se não encontrar material suficiente, oferece atalhos para pesquisar na web ou imagens no Google, sem apresentar esses resultados externos como se já tivessem sido consultados.
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+## Publicar no GitHub Pages
 
-3. Abra `.env` e preencha `GEMINI_API_KEY` com uma chave criada no Google AI Studio. Não envie essa chave em conversas, não a coloque no `index.html` e não compartilhe o arquivo `.env`.
-4. Inicie o servidor:
+O site é estático e pode ser hospedado no GitHub Pages sem Node.js, servidor ou chave secreta:
 
-   ```powershell
-   npm start
-   ```
+1. Envie `index.html` para o repositório GitHub.
+2. No repositório, abra **Settings → Pages**.
+3. Em **Build and deployment**, selecione **Deploy from a branch**, escolha `main` e a pasta `/(root)`, então clique em **Save**.
+4. Aguarde a publicação e abra o endereço exibido na seção Pages.
 
-5. Abra `http://127.0.0.1:3000` no navegador. Mantenha o terminal aberto enquanto usar a plataforma.
-
-O status no cabeçalho da Mentoria informa se o servidor e a chave estão configurados. A IA usa a API Gemini e pode consultar a Pesquisa Google para perguntas que dependam de informações atuais. As respostas podem incluir links de fontes e uma busca de imagens relacionadas.
+O backend opcional `server.js` integra o Google Gemini e requer uma chave privada. O GitHub Pages não executa esse backend. Não publique `.env`, chaves de API nem credenciais; o `.gitignore` já exclui `.env`.

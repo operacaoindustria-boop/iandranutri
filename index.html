@@ -418,8 +418,8 @@
                             <i class="fa-solid fa-brain"></i>
                         </div>
                         <div>
-                            <h3 class="font-black text-xl md:text-2xl tracking-tight">Mentoria IA Gemini</h3>
-                            <p class="text-xs md:text-sm text-emerald-100 font-medium hidden sm:block">Respostas explicadas, exemplos, pesquisa Google e fontes.</p>
+                            <h3 class="font-black text-xl md:text-2xl tracking-tight">Mentoria IA</h3>
+                            <p class="text-xs md:text-sm text-emerald-100 font-medium hidden sm:block">Explicações baseadas no acervo, exemplos e busca externa.</p>
                         </div>
                     </div>
                     <span id="mentorStatus" class="bg-emerald-900 text-emerald-100 text-[9px] md:text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border border-emerald-600 flex items-center gap-2" title="Verificando conexão com o servidor local">
@@ -431,8 +431,8 @@
                     <div class="flex gap-3 md:gap-4">
                         <div class="h-10 w-10 md:h-12 md:w-12 bg-emerald-200 rounded-full flex-shrink-0 flex items-center justify-center text-emerald-800 text-lg md:text-xl shadow-sm border-2 border-emerald-300"><i class="fa-solid fa-robot"></i></div>
                         <div class="mentor-message bg-white border border-slate-200 p-5 md:p-6 rounded-2xl rounded-tl-none shadow-sm text-sm md:text-base text-slate-700 leading-relaxed max-w-[90%] md:max-w-[85%] font-medium">
-                            <p>Olá! Sou a Mentoria IA da plataforma. Posso explicar temas do concurso ou responder outras dúvidas, com exemplos e pesquisa na web quando necessário. As respostas podem conter fontes; o botão de imagens abre uma busca visual no Google.</p>
-                            <p class="mt-3 text-xs text-slate-500">As perguntas são enviadas ao Google Gemini pelo servidor local. Confirme informações legais e de saúde em fontes oficiais.</p>
+                            <p>Olá! Sou a Mentoria IA da plataforma. Posso explicar os assuntos do acervo com exemplos e indicar pesquisas web e de imagens para complementar. Quando a resposta vier do acervo local, vou deixar isso claro.</p>
+                            <p class="mt-3 text-xs text-slate-500">A busca externa abre o Google em outra aba. Confirme informações legais e de saúde em fontes oficiais.</p>
                             <div class="mt-4 flex flex-wrap gap-2">
                                 <button type="button" class="mentor-chip" onclick="setMentorPrompt('Explique a diferença entre segurança alimentar e segurança dos alimentos com exemplos.')">SAN × segurança dos alimentos</button>
                                 <button type="button" class="mentor-chip" onclick="setMentorPrompt('Como calcular o fator de correção de um alimento? Mostre um exemplo passo a passo.')">Exemplo de cálculo</button>
@@ -2559,6 +2559,7 @@
         }
 
         let mentorHistory = [];
+        let mentorRemoteAvailable = false;
 
         function setMentorStatus(state, label, description) {
             const dot = document.getElementById('mentorStatusDot');
@@ -2595,15 +2596,18 @@
                 }
                 if (!response.ok) throw new Error(data.error || 'O servidor local não respondeu corretamente.');
                 if (!data.configured) {
-                    setMentorStatus('missing', 'Configure a chave', 'GEMINI_API_KEY não está configurada no servidor');
-                    setMentorNotice('A Mentoria IA precisa de uma chave Gemini. Configure GEMINI_API_KEY no arquivo .env e reinicie o servidor. Consulte README.md para as instruções.');
+                    mentorRemoteAvailable = false;
+                    setMentorStatus('ready', 'Acervo local', 'Assistente local disponível sem chave de API');
+                    setMentorNotice('Modo local ativo: respondo com base no acervo da plataforma. Para temas fora dele, use os botões de busca web e imagens; não é necessário configurar chave.');
                     return;
                 }
+                mentorRemoteAvailable = true;
                 setMentorStatus('ready', 'Gemini conectado', 'Servidor e chave Gemini configurados');
                 setMentorNotice('');
             } catch {
-                setMentorStatus('offline', 'Servidor desligado', 'Inicie a plataforma com npm start e abra http://127.0.0.1:3000');
-                setMentorNotice('A Mentoria IA não está conectada. Inicie o servidor com npm start e abra a plataforma em http://127.0.0.1:3000 (não pelo Live Server).');
+                mentorRemoteAvailable = false;
+                setMentorStatus('ready', 'Acervo local', 'Assistente local disponível sem servidor ou chave de API');
+                setMentorNotice('Modo local ativo: a mentoria usa o acervo didático da plataforma. Para informações fora do acervo, abra uma busca web ou de imagens.');
             }
         }
 
@@ -2651,17 +2655,29 @@
                 bubble.appendChild(sources);
             }
 
-            if (!isUser && extras.searchQueries?.length) {
-                const imageSearch = document.createElement('a');
+            if (!isUser && (extras.webSearchQuery || extras.searchQueries?.length)) {
+                const query = extras.webSearchQuery || extras.searchQueries[0];
+                const actions = document.createElement('div');
+                actions.className = 'mt-3 flex flex-wrap gap-2';
+                const webUrl = new URL('https://www.google.com/search');
+                webUrl.searchParams.set('q', query);
+                const webSearch = document.createElement('a');
+                webSearch.href = webUrl.toString();
+                webSearch.target = '_blank';
+                webSearch.rel = 'noopener noreferrer';
+                webSearch.className = 'inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-emerald-50';
+                webSearch.textContent = 'Buscar na web';
                 const imageUrl = new URL('https://www.google.com/search');
                 imageUrl.searchParams.set('tbm', 'isch');
-                imageUrl.searchParams.set('q', extras.searchQueries[0]);
+                imageUrl.searchParams.set('q', query);
+                const imageSearch = document.createElement('a');
                 imageSearch.href = imageUrl.toString();
                 imageSearch.target = '_blank';
                 imageSearch.rel = 'noopener noreferrer';
-                imageSearch.className = 'inline-flex mt-3 items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-emerald-50';
-                imageSearch.textContent = 'Ver imagens relacionadas';
-                bubble.appendChild(imageSearch);
+                imageSearch.className = webSearch.className;
+                imageSearch.textContent = 'Ver imagens';
+                actions.append(webSearch, imageSearch);
+                bubble.appendChild(actions);
             }
 
             row.append(avatar, bubble);
@@ -2669,6 +2685,86 @@
             area.appendChild(row);
             area.scrollTop = area.scrollHeight;
             return row;
+        }
+
+        function normalizeMentorText(value) {
+            return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+        }
+
+        function answerFromStudyLibrary(question) {
+            const normalizedQuestion = normalizeMentorText(question);
+            const stopWords = new Set(['para', 'com', 'uma', 'das', 'dos', 'que', 'por', 'qual', 'quais', 'como', 'quando', 'onde', 'sobre', 'explique', 'explica', 'fale', 'mostre', 'exemplo', 'exemplos', 'quero', 'saber', 'me', 'the', 'and', 'foi', 'era', 'sao', 'ser', 'tem', 'sua', 'seu', 'pode', 'resultado', 'resultados', 'ultima', 'ultimo', 'prova', 'questao', 'questoes', 'edital', 'concurso', 'tema', 'assunto', 'conteudo', 'materia']);
+            const keywords = [...new Set(normalizedQuestion.match(/[a-z0-9]{3,}/g) || [])]
+                .filter(word => !stopWords.has(word));
+            if (!keywords.length) {
+                return {
+                    answer: 'Ainda não identifiquei um tema do acervo na sua pergunta. Você pode perguntar, por exemplo, “explique o IMC”, “como calcular o fator de correção?” ou “qual a diferença entre SUS e SUAS?”. Para outros assuntos, use a busca web ou de imagens abaixo.',
+                    webSearchQuery: question,
+                    searchQueries: [question]
+                };
+            }
+
+            const candidates = [];
+            editalTopics.forEach(topic => {
+                const source = apostilasDB[topic.k];
+                if (!source) return;
+                const parsed = new DOMParser().parseFromString(`<div>${source}</div>`, 'text/html');
+                let sectionTitle = topic.n;
+                [...parsed.body.querySelectorAll('h2, h3, h4, p, li')].forEach(node => {
+                    if (/^H[234]$/.test(node.tagName)) {
+                        sectionTitle = node.textContent.trim();
+                        return;
+                    }
+                    const content = node.textContent.trim();
+                    if (content.length < 50) return;
+                    const normalizedContent = normalizeMentorText(content);
+                    const normalizedTitle = normalizeMentorText(sectionTitle);
+                    const score = keywords.reduce((total, keyword) => {
+                        const occurrences = normalizedContent.split(keyword).length - 1;
+                        return total + (normalizedTitle.includes(keyword) ? 3 : 0) + Math.min(occurrences, 3);
+                    }, 0);
+                    if (score > 0) candidates.push({ topic, sectionTitle, content, score });
+                });
+            });
+
+            Object.entries(apostilaStudyPlans).forEach(([topicKey, plan]) => {
+                const topic = topicsByKey[topicKey];
+                plan.questions.forEach(([prompt, answer]) => {
+                    const content = `${prompt}\n${answer}`;
+                    const normalizedContent = normalizeMentorText(content);
+                    const score = keywords.reduce((total, keyword) =>
+                        total + Math.min(normalizedContent.split(keyword).length - 1, 3), 0);
+                    if (score > 0) candidates.push({ topic, sectionTitle: plan.title, content, score: score + 1 });
+                });
+            });
+
+            candidates.sort((first, second) => second.score - first.score || second.content.length - first.content.length);
+            const bestScore = candidates[0]?.score || 0;
+            const best = candidates
+                .filter(candidate => candidate.score >= Math.max(2, bestScore * 0.45))
+                .filter((candidate, index, list) =>
+                    list.findIndex(item => item.topic.k === candidate.topic.k && item.content === candidate.content) === index
+                )
+                .slice(0, 4);
+
+            if (!best.length || bestScore < 2) {
+                return {
+                    answer: `Não encontrei uma explicação suficiente sobre “${question}” no acervo local. Não vou inventar uma resposta nem dizer que consultei a internet. Você pode pesquisar esse assunto na web pelos botões abaixo ou reformular a pergunta com um tema do concurso.`,
+                    webSearchQuery: question,
+                    searchQueries: [question]
+                };
+            }
+
+            const sections = best.map((item, index) => {
+                const excerpt = item.content.length > 1000 ? `${item.content.slice(0, 997).trim()}...` : item.content;
+                const heading = index === 0 ? 'Explicação' : `Complemento ${index}`;
+                return `${heading} — ${item.sectionTitle} (${item.topic.n})\n${excerpt}`;
+            });
+            return {
+                answer: `Resposta baseada no acervo local da plataforma. Os trechos abaixo abordam o que encontrei relacionado à pergunta. Para assuntos atuais ou que não estejam no acervo, use a busca web.\n\n${sections.join('\n\n')}`,
+                webSearchQuery: question,
+                searchQueries: [question]
+            };
         }
 
         async function sendMsg(event) {
@@ -2682,24 +2778,31 @@
             input.disabled = true;
             appendMentorMessage('user', question);
             input.value = '';
-            const loading = appendMentorMessage('assistant', 'Estou pesquisando e preparando uma resposta...');
+            const loading = appendMentorMessage('assistant', mentorRemoteAvailable
+                ? 'Estou pesquisando e preparando uma resposta...'
+                : 'Estou consultando o acervo de estudos...');
 
             try {
-                const response = await fetch('/api/mentor', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question, messages: mentorHistory })
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    const error = new Error(data.error || 'A Mentoria IA não conseguiu responder.');
-                    error.status = response.status;
-                    throw error;
-                }
-                if (typeof data.answer !== 'string' || !data.answer.trim()) {
-                    throw new Error('A IA retornou uma resposta vazia. Tente reformular a pergunta.');
+                let data;
+                if (mentorRemoteAvailable) {
+                    try {
+                        const response = await fetch('/api/mentor', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ question, messages: mentorHistory })
+                        });
+                        data = await response.json().catch(() => null);
+                        if (!response.ok || typeof data?.answer !== 'string' || !data.answer.trim()) {
+                            throw new Error(data?.error || 'O Gemini não conseguiu responder.');
+                        }
+                    } catch {
+                        mentorRemoteAvailable = false;
+                        setMentorStatus('ready', 'Acervo local', 'Gemini indisponível; respostas pelo acervo da plataforma');
+                        setMentorNotice('O serviço Gemini está indisponível; a mentoria continuará respondendo com o acervo local e oferecerá buscas web.');
+                    }
                 }
 
+                if (!data) data = answerFromStudyLibrary(question);
                 mentorHistory = [
                     ...mentorHistory,
                     { role: 'user', content: question },
@@ -2707,21 +2810,15 @@
                 ].slice(-10);
                 loading.remove();
                 appendMentorMessage('assistant', data.answer, data);
-                setMentorStatus('ready', 'Gemini conectado', `Resposta gerada por ${data.model || 'Gemini'}`);
-                setMentorNotice('');
+                if (data.model) {
+                    setMentorStatus('ready', 'Gemini conectado', `Resposta gerada por ${data.model}`);
+                    setMentorNotice('');
+                }
             } catch (error) {
                 loading.remove();
-                appendMentorMessage('assistant', `Não consegui obter a resposta: ${error.message}`);
-                if (error.status === 503) {
-                    setMentorStatus('missing', 'Configure a chave', error.message);
-                    setMentorNotice(error.message);
-                } else if (error instanceof TypeError || error.status === 404) {
-                    setMentorStatus('offline', 'Servidor desligado', 'Inicie a plataforma com npm start e abra http://127.0.0.1:3000');
-                    setMentorNotice('Não foi possível acessar o backend da IA. Inicie o servidor com npm start e abra a plataforma em http://127.0.0.1:3000.');
-                } else {
-                    setMentorStatus('error', 'Falha na resposta', error.message);
-                    setMentorNotice(error.message);
-                }
+                appendMentorMessage('assistant', `Não consegui consultar o acervo: ${error.message}`);
+                setMentorStatus('error', 'Falha local', error.message);
+                setMentorNotice('Ocorreu um erro ao consultar o acervo local. Recarregue a plataforma e tente novamente.');
                 input.value = question;
             } finally {
                 button.disabled = false;
