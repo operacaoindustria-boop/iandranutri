@@ -2195,26 +2195,54 @@
             const explanations = [];
 
             for (let position = 0; position < 4; position++) {
-                const factIndex = (index * 7 + position * 11) % facts.length;
-                const [correct, incorrect, rationale] = facts[factIndex];
                 const isTrue = ((index >> position) & 1) === 1;
-                assertions.push(isTrue ? correct : incorrect);
+                const usedAssertions = new Set(assertions.map(assertion =>
+                    assertion.normalize('NFKC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR')
+                ));
+                const startIndex = (index * 7 + position) % facts.length;
+                let selectedFact = null;
+                let selectedAssertion = '';
+                for (let offset = 0; offset < facts.length; offset++) {
+                    const fact = facts[(startIndex + offset) % facts.length];
+                    const assertion = isTrue ? fact[0] : fact[1];
+                    const normalizedAssertion = assertion.normalize('NFKC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR');
+                    if (!usedAssertions.has(normalizedAssertion)) {
+                        selectedFact = fact;
+                        selectedAssertion = assertion;
+                        break;
+                    }
+                }
+                if (!selectedFact) {
+                    throw new Error(`Não há quatro afirmações distintas para gerar uma questão de ${ax}.`);
+                }
+                const [, , rationale] = selectedFact;
+                assertions.push(selectedAssertion);
                 truthValues.push(isTrue);
                 explanations.push(`${['I', 'II', 'III', 'IV'][position]}: ${isTrue ? 'verdadeira' : 'falsa'}. ${rationale}`);
             }
 
             const correctSequence = truthValues.map(value => value ? 'V' : 'F').join(', ');
-            const distractorSequences = [];
-            for (let position = 0; position < 4; position++) {
-                const altered = [...truthValues];
-                altered[position] = !altered[position];
-                const sequence = altered.map(value => value ? 'V' : 'F').join(', ');
-                if (!distractorSequences.includes(sequence)) distractorSequences.push(sequence);
+            const allSequences = Array.from({ length: 16 }, (_, mask) =>
+                Array.from({ length: 4 }, (__, position) => (mask & (1 << (3 - position))) ? 'V' : 'F').join(', ')
+            );
+            const incorrectSequences = allSequences.filter(sequence => sequence !== correctSequence);
+            const distractorStart = (index * 4) % incorrectSequences.length;
+            const distractorSequences = Array.from({ length: 4 }, (_, offset) =>
+                incorrectSequences[(distractorStart + offset) % incorrectSequences.length]
+            );
+            const uniqueAssertions = new Set(assertions.map(assertion =>
+                assertion.normalize('NFKC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR')
+            ));
+            if (uniqueAssertions.size !== 4) {
+                throw new Error(`Questão de ${ax} contém afirmações repetidas.`);
             }
             const choices = labelOptions([
                 { text: correctSequence, isCorrect: true },
                 ...distractorSequences.map(text => ({ text, isCorrect: false }))
             ]);
+            if (new Set(choices.map(option => option.text)).size !== 5 || choices.filter(option => option.isCorrect).length !== 1) {
+                throw new Error(`As alternativas da questão de ${ax} não são únicas ou têm mais de uma resposta correta.`);
+            }
             return {
                 ax,
                 kind: 'sequence',
